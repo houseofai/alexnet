@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 class AlexNet(tf.keras.Model):
     def __init__(self):
@@ -27,7 +28,6 @@ class AlexNet(tf.keras.Model):
 
         self.flatten = tf.keras.layers.Flatten()
 
-        # Input: 6 * 6 * 128 * 2 = 9216
         self.fc1 = tf.keras.layers.Dense(4096, activation="relu")
 
         self.fc2 = tf.keras.layers.Dense(4096, activation="relu")
@@ -35,7 +35,7 @@ class AlexNet(tf.keras.Model):
         self.fc3 = tf.keras.layers.Dense(1000, activation="softmax")
 
     def call(self, input):
-
+        
         x = self.conv1(input)
         x = tf.nn.local_response_normalization(x, depth_radius=5, bias=2, alpha=0.001, beta=0.75)
         x = self.max_pool(x)
