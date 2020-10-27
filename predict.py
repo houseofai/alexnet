@@ -2,6 +2,7 @@ from model import AlexNet
 import tensorflow as tf
 import logging
 import sys
+import numpy as np
 
 from sklearn.datasets import load_sample_image
 
@@ -16,16 +17,20 @@ image = load_sample_image("flower.jpg")/255
 image, label = transform(image, "")
 image = tf.expand_dims(image, axis=0)
 
+model = AlexNet()
 
 latest_ckpt = tf.train.latest_checkpoint("./checkpoints")
 log.info("Loading the latest checkpoints: {}".format(latest_ckpt))
-ckpt = tf.train.Checkpoint(step=tf.Variable(1))
-ckpt.restore(latest_ckpt).expect_partial()
+ckpt = tf.train.Checkpoint(net=model)
+ckpt.restore(latest_ckpt)
 
-model = AlexNet()
 outputs = model.predict(image)
-print("Outputs Shape:", outputs.shape)
-print("Outputs:", outputs)
+
+log.info("Outputs Shape:", outputs.shape)
+log.info("Outputs Max:", max(outputs[0]))
+log.info("Outputs Index:", np.argmax(outputs[0]))
+
+
 # Plotting
 #fig, ax = plt.subplots(1,2)
 #ax[0].imshow(china)
