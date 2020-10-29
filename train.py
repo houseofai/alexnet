@@ -1,4 +1,5 @@
 from model import AlexNet
+import data_augmentation as da
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -15,7 +16,7 @@ log = logging.getLogger(__name__)
 epochs = 90
 checkpoints_directory = './checkpoints'
 checkpoint_name = 'alexnet'
-
+batch_size=128
 
 def transform(image, label):
     image = tf.image.resize(image, [227,227])
@@ -34,15 +35,15 @@ def show_key_weights(model):
     weights = layer.get_weights()
     log.info("* Key Weights - Last Layer: {}".format(weights[0][0][0]))
 
-log.info("--- Dataset ---")
-log.info("* Loading ImageNet dataset")
-ds = tfds.load('imagenet_a', split='test', as_supervised=True, batch_size=128)
+#log.info("--- Dataset ---")
+#log.info("* Loading ImageNet dataset")
+#ds = tfds.load('imagenet_a', split='test', as_supervised=True, batch_size=128)
 
-log.info("* Transforming the dataset")
-ds = ds.map(transform)
+#log.info("* Transforming the dataset")
+#ds = ds.map(transform)
 
-
-
+ds = da.processing()
+#print("Image shape:", img_shape(ds))
 
 log.info("--- Model ---")
 
@@ -53,7 +54,7 @@ loss = tf.keras.losses.MeanSquaredError()
 log.info("* Building Alexnet model...")
 model = AlexNet()
 model.compile(optimizer=optimizer, loss=loss)
-model.build(img_shape(ds))
+model.build((None, 227, 227, 3))
 log.info("* New model built")
 
 log.info("* Summary")
@@ -69,6 +70,7 @@ manager = tf.train.CheckpointManager(ckpt, directory=checkpoints_directory, chec
 ckpt.restore(manager.latest_checkpoint)
 if manager.latest_checkpoint:
     log.info("Restored from {}".format(manager.latest_checkpoint))
+    last_epoch = manager.latest_checkpoint[-1]
 else:
     log.info("Initializing from scratch.")
 
@@ -128,7 +130,7 @@ callbacks = [ManageCheckpoints(manager), LearningRateDecay(), tensorboard_callba
 # Train
 log.info("Start training")
 log.info("* epochs: {}".format(epochs))
-model.fit(ds, epochs=epochs, callbacks=callbacks)
+model.fit(ds, epochs=epochs, batch_size=batch_size, callbacks=callbacks)
 
 
 

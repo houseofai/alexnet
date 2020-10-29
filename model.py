@@ -41,6 +41,7 @@ class AlexNet(tf.keras.Model):
 
     def call(self, input):
 
+
         x = self.conv1(input)
         x = tf.nn.local_response_normalization(x, depth_radius=5, bias=2, alpha=0.001, beta=0.75)
         x = self.max_pool(x)
