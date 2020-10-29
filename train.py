@@ -1,16 +1,25 @@
+config_file = "original"
+
+# Internal libs
 from model import AlexNet
 import data_augmentation as da
-import numpy as np
-import tensorflow as tf
-import tensorflow_datasets as tfds
-import matplotlib.pyplot as plt
+# 3rd party sys libs
 from pathlib import Path
 import logging
 import sys
-from sklearn.datasets import load_sample_image
+import yaml
+from munch import munchify
+# 3rd party frameworks
+import numpy as np
+import tensorflow as tf
+import tensorflow_datasets as tfds
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
+
+log.info("* Loading configuration file '{}'".format(config_file))
+config = munchify(yaml.safe_load(open("config/{}.yml").format(config_file)))
+log.info("** Loaded")
 
 
 epochs = 90
@@ -35,19 +44,12 @@ def show_key_weights(model):
     weights = layer.get_weights()
     log.info("* Key Weights - Last Layer: {}".format(weights[0][0][0]))
 
-#log.info("--- Dataset ---")
-#log.info("* Loading ImageNet dataset")
-#ds = tfds.load('imagenet_a', split='test', as_supervised=True, batch_size=128)
-
-#log.info("* Transforming the dataset")
-#ds = ds.map(transform)
 
 ds = da.processing()
-#print("Image shape:", img_shape(ds))
 
 log.info("--- Model ---")
 
-optimizer = tf.keras.optimizers.SGD(learning_rate=0.0005, momentum=0.9)
+optimizer = tf.keras.optimizers.SGD(learning_rate=config.optimizer.learning_rate, momentum=config.optimizer.momentum)
 loss = tf.keras.losses.MeanSquaredError()
 
 # Load model
@@ -65,7 +67,7 @@ show_key_weights(model)
 
 # Checkpoint manager
 ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)#, iterator=iterator)
-manager = tf.train.CheckpointManager(ckpt, directory=checkpoints_directory, checkpoint_name=checkpoint_name, max_to_keep=3)
+manager = tf.train.CheckpointManager(ckpt, directory=config.checkpoint.dir, checkpoint_name=config.checkpoint.name, max_to_keep=config.checkpoint.max_to_keep)
 
 ckpt.restore(manager.latest_checkpoint)
 if manager.latest_checkpoint:
@@ -123,14 +125,14 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
                     log.info("* Decreasing Learning Rate (x{}): {} (old {})"
                         .format(self.time_decay, self.model.optimizer.lr, prev_lr))
 
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir="./logs")
+tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=config.tensorboard.dir)
 
 callbacks = [ManageCheckpoints(manager), LearningRateDecay(), tensorboard_callback]
 
 # Train
 log.info("Start training")
-log.info("* epochs: {}".format(epochs))
-model.fit(ds, epochs=epochs, batch_size=batch_size, callbacks=callbacks)
+log.info("* epochs: {}".format(config.training.epochs))
+model.fit(ds, batch_size=config.training.batch_size, callbacks=callbacks)
 
 
 

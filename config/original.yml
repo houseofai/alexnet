@@ -1,0 +1,18 @@
+
+training:
+  epochs: 90
+  batch_size: 128
+  input_size: (227,227,3)
+
+
+checkpoint:
+  name: "alexnet"
+  dir: "./checkpoints"
+  max_to_keep: 3
+
+optimizer:
+  learning_rate: 0.0005
+  momentum: 0.9
+
+tensorboard:
+  dir: logs
