@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
 log.info("* Loading configuration file '{}'".format(config_file))
-config = munchify(yaml.safe_load(open("config/{}.yml").format(config_file)))
+config = munchify(yaml.safe_load(open("config/{}.yml".format(config_file))))
 log.info("** Loaded")
 
 
