@@ -57,4 +57,4 @@ def processing():
         log.info("Amount of images: {}".format(i))
 
 
-    return ds_final.batch(128)#.prefetch()
+    return ds_final.batch(128).prefetch(tf.data.experimental.AUTOTUNE)
