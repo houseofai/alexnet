@@ -65,7 +65,7 @@ callbacks = [mcc.ManageCheckpoints(manager), lrcb.LearningRateDecay(patience=3),
 # Train
 log.info("Start training")
 log.info("* epochs: {}".format(config.training.epochs))
-model.fit(ds, batch_size=BATCH_SIZE, callbacks=callbacks)
+model.fit(ds, epochs=config.training.epochs, batch_size=BATCH_SIZE, callbacks=callbacks)
 
 
 
