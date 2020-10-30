@@ -1,6 +1,8 @@
 config_file = "original"
 
 # Internal libs
+from callbacks import LRDecayCallBack as lrcb
+from callbacks import ManageCheckpointsCallBack as mcc
 from model import AlexNet
 import data_augmentation as da
 # 3rd party sys libs
@@ -21,49 +23,29 @@ log.info("* Loading configuration file '{}'".format(config_file))
 config = munchify(yaml.safe_load(open("config/{}.yml".format(config_file))))
 log.info("** Loaded")
 
+log.info("--- Distributed training ---")
+strategy = tf.distribute.MirroredStrategy()
+nb_gpu = strategy.num_replicas_in_sync
+log.info("* Found {} GPU".format(nb_gpu))
 
-epochs = 90
-checkpoints_directory = './checkpoints'
-checkpoint_name = 'alexnet'
-batch_size=128
-
-def transform(image, label):
-    image = tf.image.resize(image, [227,227])
-    return image, label
-
-def img_shape(ds):
-    image, label = next(iter(ds))
-    return image.shape
-
-def show_key_weights(model):
-    layer = model.layers[0]
-    weights = layer.get_weights()
-    log.info("* Key Weights - First Layer: {}".format(weights[0][0][0][0][0]))
-
-    layer = model.layers[8]
-    weights = layer.get_weights()
-    log.info("* Key Weights - Last Layer: {}".format(weights[0][0][0]))
-
-
-ds = da.processing()
+log.info("--- Dataset ---")
+BATCH_SIZE = config.training.batch_size * strategy.num_replicas_in_sync
+ds = da.processing(BATCH_SIZE, config.data.crop_amount)
 
 log.info("--- Model ---")
-
 optimizer = tf.keras.optimizers.SGD(learning_rate=config.optimizer.learning_rate, momentum=config.optimizer.momentum)
 loss = tf.keras.losses.MeanSquaredError()
 
 # Load model
-log.info("* Building Alexnet model...")
-model = AlexNet()
-model.compile(optimizer=optimizer, loss=loss)
-model.build((None, 227, 227, 3))
-log.info("* New model built")
+with strategy.scope():
+    log.info("* Building Alexnet model...")
+    model = AlexNet()
+    model.compile(optimizer=optimizer, loss=loss)
+    model.build((None, 227, 227, 3))
+    log.info("* New model built")
 
 log.info("* Summary")
 log.info("{}".format(model.summary()))
-
-log.info("Key weights BEFORE loading checkpoint")
-show_key_weights(model)
 
 # Checkpoint manager
 ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)#, iterator=iterator)
@@ -76,73 +58,14 @@ if manager.latest_checkpoint:
 else:
     log.info("Initializing from scratch.")
 
-log.info("Key weights AFTER loading checkpoint")
-show_key_weights(model)
-
-class ManageCheckpoints(tf.keras.callbacks.Callback):
-    def __init__(self, checkpoint_manager):
-        self.checkpoint_manager = checkpoint_manager
-
-    def on_epoch_end(self, epoch, logs=None):
-        super().on_epoch_end(epoch, logs)
-        self.checkpoint_manager.save()
-
-class LearningRateDecay(tf.keras.callbacks.Callback):
-
-    def __init__(self, patience=0):
-        super(LearningRateDecay, self).__init__()
-        self.patience = patience
-        # best_weights to store the weights at which the minimum loss occurs.
-        self.best_weights = None
-
-    def on_train_begin(self, logs=None):
-        # The number of epoch it has waited when loss is no longer minimum.
-        self.wait = 0
-        self.time_decay = 0
-        # The epoch the training stops at.
-        self.stopped_epoch = 0
-        # Initialize the best as infinity.
-        self.best = np.Inf
-
-    def on_epoch_end(self, epoch, logs=None):
-        current = logs.get("loss")
-        if np.less(current, self.best):
-            self.best = current
-            self.wait = 0
-        else:
-            self.wait += 1
-            if self.wait >= self.patience:
-                # LR Decay
-                self.time_decay+=1
-                # Max time we can decay: 3
-                if self.time_decay > 3:
-                    log.info("Too many decay!")
-                    self.stopped_epoch = epoch
-                    self.model.stop_training = True
-                else:
-                    prev_lr = self.model.optimizer.lr
-                    self.model.optimizer.lr=prev_lr/10
-                    log.info("* Decreasing Learning Rate (x{}): {} (old {})"
-                        .format(self.time_decay, self.model.optimizer.lr, prev_lr))
-
+# Callbacks
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=config.tensorboard.dir)
-
-callbacks = [ManageCheckpoints(manager), LearningRateDecay(), tensorboard_callback]
+callbacks = [mcc.ManageCheckpoints(manager), lrcb.LearningRateDecay(), tensorboard_callback]
 
 # Train
 log.info("Start training")
 log.info("* epochs: {}".format(config.training.epochs))
-model.fit(ds, batch_size=config.training.batch_size, callbacks=callbacks)
-
-
-
-
-
-
-
-
-
-
+model.fit(ds, batch_size=BATCH_SIZE, callbacks=callbacks)
 
 
 

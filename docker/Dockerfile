@@ -9,4 +9,4 @@ RUN git clone https://github.com/houseofai/alexnet.git
 
 WORKDIR /alexnet
 
-#RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt

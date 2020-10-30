@@ -20,13 +20,8 @@ def fliph(image, label):
     image = tf.image.flip_left_right(image)
     return image, label
 
-def img_shape(ds):
-    image, label = next(iter(ds))
-    return image.shape
+def processing(batch_size, crop_amount):
 
-def processing():
-
-    log.info("--- Dataset ---")
     log.info("* Loading ImageNet dataset")
     ds = tfds.load('imagenet_a', split='test', as_supervised=True)
 
@@ -37,13 +32,11 @@ def processing():
     log.info("** Cropping")
     ds_final = ds.map(crop)
 
-    augment = True
-    if augment:
-        for i in range(0, 1047):
-            ds_final = ds_final.concatenate(ds.map(crop))
+    for i in range(0, crop_amount):
+        ds_final = ds_final.concatenate(ds.map(crop))
 
-        log.info("** Flipping horizontally")
-        ds_final = ds_final.concatenate(ds_final.map(fliph))
+    log.info("** Flipping horizontally")
+    ds_final = ds_final.concatenate(ds_final.map(fliph))
 
     count_images = False
     if count_images:
@@ -56,5 +49,10 @@ def processing():
 
         log.info("Amount of images: {}".format(i))
 
+    ds_file_size = tf.data.experimental.cardinality(ds)*crop_amount*2
+    log.info("* Dataset size estimation: {}".format(ds_file_size))
 
-    return ds_final.batch(128).prefetch(tf.data.experimental.AUTOTUNE)
+    return ds_final.cache() \
+        .shuffle(ds_file_size) \
+        .batch(batch_size) \
+        .prefetch(tf.data.experimental.AUTOTUNE)
