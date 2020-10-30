@@ -13,6 +13,8 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
         self.patience = patience
         # best_weights to store the weights at which the minimum loss occurs.
         self.best_weights = None
+        self.max_time_decay = 3
+        self.decay_divider = 10
 
     def on_train_begin(self, logs=None):
         # The number of epoch it has waited when loss is no longer minimum.
@@ -36,12 +38,12 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
                 # LR Decay
                 self.time_decay+=1
                 # Max time we can decay: 3
-                if self.time_decay > 3:
+                if self.time_decay > self.max_time_decay:
                     log.info("Too many decay!")
                     self.stopped_epoch = epoch
                     self.model.stop_training = True
                 else:
                     prev_lr = self.model.optimizer.lr
-                    self.model.optimizer.lr=prev_lr/10
+                    self.model.optimizer.lr=prev_lr/self.decay_divider
                     log.info("* Decreasing Learning Rate (x{}): {} (old {})"
                         .format(self.time_decay, self.model.optimizer.lr, prev_lr))
