@@ -60,7 +60,7 @@ else:
 
 # Callbacks
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=config.tensorboard.dir)
-callbacks = [mcc.ManageCheckpoints(manager), lrcb.LearningRateDecay(), tensorboard_callback]
+callbacks = [mcc.ManageCheckpoints(manager), lrcb.LearningRateDecay(patience=3), tensorboard_callback]
 
 # Train
 log.info("Start training")
