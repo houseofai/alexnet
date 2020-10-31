@@ -16,6 +16,4 @@ RUN pip install tensorflow-datasets==4.0.1
 WORKDIR /root
 
 # PROJECT
-#CMD git clone https://github.com/houseofai/alexnet.git
 ENTRYPOINT /bin/bash
-#ENTRYPOINT pip install -r /root/alexnet/requirements.txt
