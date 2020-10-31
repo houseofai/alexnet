@@ -32,7 +32,7 @@ def processing(batch_size, crop_amount):
     log.info("** Cropping")
     ds_final = ds.map(crop)
 
-    for i in range(0, crop_amount):
+    for i in range(0, crop_amount-1):
         ds_final = ds_final.concatenate(ds.map(crop))
 
     log.info("** Flipping horizontally")

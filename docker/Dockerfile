@@ -1,12 +1,21 @@
 FROM tensorflow/tensorflow:2.3.1-gpu
 
-RUN apt-get update
+COPY . .
 
-# Install Python, pip3
+# Update the environments
+RUN apt-get update
+RUN pip install --upgrade pip
+
+# Install git
 RUN apt-get -y install git
 
-RUN git clone https://github.com/houseofai/alexnet.git
+# Download dataset
+RUN pip install tensorflow-datasets==4.0.1
+#RUN python dataloader.py
 
-WORKDIR /alexnet
+WORKDIR /root
 
-RUN pip install -r requirements.txt
+# PROJECT
+#CMD git clone https://github.com/houseofai/alexnet.git
+ENTRYPOINT /bin/bash
+#ENTRYPOINT pip install -r /root/alexnet/requirements.txt
