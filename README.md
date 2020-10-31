@@ -26,3 +26,23 @@ To train the model, launch the following command:
  ```
  python train.py
  ```
+
+ To test the configuration on a smaller dataset:
+ ```
+ python train.py --conf=test
+ ```
+
+### Predict
+
+**TODO**
+
+### Main Folders
+
+├── checkpoints         Checkpoints from training
+├── config              Configuration files
+│   ├── original.yml
+│   └── test.yml
+├── docker              Files to build a Docker image
+│   ├── Dockerfile
+│   ├── dataloader.py
+│   └── setup.sh
