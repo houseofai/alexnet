@@ -9,12 +9,13 @@ import logging
 import sys
 import yaml
 from munch import munchify
+import argparse
 # 3rd party frameworks
 import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-import argparse
+tf.executing_eagerly()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--conf", default="orignal", help="'orignal' or 'test' config file")
