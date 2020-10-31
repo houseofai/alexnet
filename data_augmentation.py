@@ -52,7 +52,7 @@ def processing(batch_size, crop_amount):
     ds_file_size = tf.data.experimental.cardinality(ds)*crop_amount*2
     log.info("* Dataset size estimation: {}".format(ds_file_size))
 
-    return ds_final.cache() \
+    return ds_final.cache("cached_file.data") \
         .shuffle(batch_size*2) \
         .batch(batch_size) \
         .prefetch(tf.data.experimental.AUTOTUNE)
