@@ -53,6 +53,6 @@ def processing(batch_size, crop_amount):
     log.info("* Dataset size estimation: {}".format(ds_file_size))
 
     return ds_final.cache() \
-        .shuffle(ds_file_size) \
+        .shuffle(batch_size*2) \
         .batch(batch_size) \
         .prefetch(tf.data.experimental.AUTOTUNE)

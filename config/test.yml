@@ -1,11 +1,11 @@
 
 training:
-  epochs: 90
+  epochs: 3
   batch_size: 128
   input_size: (227,227,3)
 
 data:
-  crop_amount: 1047
+  crop_amount: 8
 
 checkpoint:
   name: "alexnet"
