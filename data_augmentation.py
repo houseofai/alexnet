@@ -5,8 +5,6 @@ import tensorflow_datasets as tfds
 import logging
 import sys
 
-tf.executing_eagerly()
-
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
