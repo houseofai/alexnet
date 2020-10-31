@@ -76,6 +76,7 @@ callbacks = [mcc.ManageCheckpoints(manager), lrcb.LearningRateDecay(patience=3),
 # Train
 log.info("Start training")
 log.info("* epochs: {}".format(config.training.epochs))
+log.info("* Processing the images. Might take a while depending on the CPU")
 model.fit(ds, epochs=config.training.epochs, batch_size=BATCH_SIZE, callbacks=callbacks)
 
 
