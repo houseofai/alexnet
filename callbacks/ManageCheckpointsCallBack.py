@@ -14,4 +14,5 @@ class ManageCheckpoints(tf.keras.callbacks.Callback):
         super().on_epoch_end(epoch, logs)
         self.checkpoint_manager.save()
 
-        log.info("Epoch {} Execution time: {}".format(epoch, time.perf_counter() - self.start_time))
+        log.info("\nEpoch {} Execution time: {}".format(epoch, time.perf_counter() - self.start_time))
+        self.start_time = time.perf_counter()
