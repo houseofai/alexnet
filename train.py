@@ -21,7 +21,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--conf", default="orignal", help="'orignal' or 'test' config file")
 args = parser.parse_args()
 
-
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ log.info("* Found {} GPU".format(nb_gpu))
 
 log.info("--- Dataset ---")
 BATCH_SIZE = config.training.batch_size * strategy.num_replicas_in_sync
-ds = da.processing(BATCH_SIZE, config.data.crop_amount)
+ds = da.processing(config.data.dataset, BATCH_SIZE, config.data.crop_amount)
 
 log.info("--- Model ---")
 optimizer = tf.keras.optimizers.SGD(learning_rate=config.optimizer.learning_rate, momentum=config.optimizer.momentum)
@@ -77,7 +76,7 @@ callbacks = [mcc.ManageCheckpoints(manager), lrcb.LearningRateDecay(patience=3),
 log.info("Start training")
 log.info("* epochs: {}".format(config.training.epochs))
 log.info("* Processing the images. Might take a while depending on the CPU")
-model.fit(ds, epochs=config.training.epochs, batch_size=BATCH_SIZE, callbacks=callbacks)
+model.fit(ds, epochs=config.training.epochs, callbacks=callbacks)
 
 
 
