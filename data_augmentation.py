@@ -20,23 +20,30 @@ def fliph(image, label):
     image = tf.image.flip_left_right(image)
     return image, label
 
-def processing(batch_size, crop_amount):
+def processing(ds_name, batch_size, crop_amount):
 
-    log.info("* Loading ImageNet dataset")
-    ds = tfds.load('imagenet_a', split='test', as_supervised=True)
+    log.info("* Loading dataset")
+    ds = tfds.load(ds_name, split='test', as_supervised=True)
 
     log.info("* Transforming the dataset:")
     log.info("** Resize")
     ds = ds.map(transform)
 
-    log.info("** Cropping")
-    ds_final = ds.map(crop)
-
-    for i in range(0, crop_amount-1):
-        ds_final = ds_final.concatenate(ds.map(crop))
-
     log.info("** Flipping horizontally")
-    ds_final = ds_final.concatenate(ds_final.map(fliph))
+    ds = ds.concatenate(ds.map(fliph))
+
+    #log.info("** Cache")
+    #ds = ds.cache()
+
+    log.info("** Repeat {} times".format(crop_amount))
+    ds = ds.repeat(crop_amount)
+
+    log.info("** Cropping")
+    ds = ds.map(crop)
+
+    #for i in range(0, crop_amount-1):
+    #    ds_final = ds_final.concatenate(ds.map(crop))
+
 
     count_images = False
     if count_images:
@@ -49,10 +56,8 @@ def processing(batch_size, crop_amount):
 
         log.info("Amount of images: {}".format(i))
 
-    ds_file_size = tf.data.experimental.cardinality(ds)*crop_amount*2
+    ds_file_size = tf.data.experimental.cardinality(ds)#*crop_amount*2
     log.info("* Dataset size estimation: {}".format(ds_file_size))
 
-    return ds_final.cache("cached_file.data") \
-        .shuffle(batch_size*2) \
-        .batch(batch_size) \
-        .prefetch(tf.data.experimental.AUTOTUNE)
+    return ds.batch(batch_size)#.prefetch(tf.data.experimental.AUTOTUNE) \
+        #.shuffle(batch_size*2) \
