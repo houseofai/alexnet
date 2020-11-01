@@ -5,7 +5,8 @@ training:
   input_size: (227,227,3)
 
 data:
-  crop_amount: 8
+  crop_amount: 2
+  dataset: imagenet_a
 
 checkpoint:
   name: "alexnet"

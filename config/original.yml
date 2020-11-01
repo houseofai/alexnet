@@ -6,6 +6,7 @@ training:
 
 data:
   crop_amount: 1048
+  dataset: imagenet_a
 
 checkpoint:
   name: "alexnet"
