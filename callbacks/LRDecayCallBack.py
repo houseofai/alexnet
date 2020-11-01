@@ -26,6 +26,7 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
         self.best = np.Inf
 
     def on_epoch_end(self, epoch, logs=None):
+        super().on_epoch_end(epoch, logs)
         current = logs.get("loss")
         log.info("Epoch: {} - Loss: {}".format(epoch, current))
         if np.less(current, self.best):
