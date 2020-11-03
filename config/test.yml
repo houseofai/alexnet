@@ -4,6 +4,10 @@ training:
   batch_size: 128
   input_size: (227,227,3)
 
+model:
+  dir: models
+  name: imagenet_a
+  
 data:
   crop_amount: 2
   dataset: imagenet_a
