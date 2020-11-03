@@ -1,6 +1,9 @@
 # Internal libs
-from callbacks import LRDecayCallBack as lrcb
-from callbacks import ManageCheckpointsCallBack as mcc
+from helpers import LogEvents as lev
+from helpers import TimeManager as tm
+from helpers import CheckpointManager as cm
+from config import ConfigManager as cfg
+import objects as obj
 from model import AlexNet
 import data_augmentation as da
 # 3rd party sys libs
@@ -15,72 +18,117 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-tf.executing_eagerly()
+def compute_loss(train_obj, y, predictions):
+  per_example_loss = train_obj.loss(y, predictions)
+  return tf.nn.compute_average_loss(per_example_loss, global_batch_size=train_obj.global_batch_size)
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--conf", default="orignal", help="'orignal' or 'test' config file")
-args = parser.parse_args()
 
-logging.basicConfig(level=logging.INFO)
-log = logging.getLogger(__name__)
+def train_step(train_obj, x, y):
+    
+    with tf.GradientTape() as tape:
+        predictions = train_obj.model(x, training=True)
+        loss_value = compute_loss(train_obj, y, predictions)
 
-log.info("--- Configuration file ---")
-config_file = "original"
-if args.conf.lower() == "test":
-    config_file = "test"
+    grads = tape.gradient(loss_value, train_obj.model.trainable_variables)
+    train_obj.optimizer.apply_gradients(zip(grads, train_obj.model.trainable_variables))
+    return loss_value, predictions
 
-log.info("* Loading configuration file '{}'".format(config_file))
-config = munchify(yaml.safe_load(open("config/{}.yml".format(config_file))))
-log.info("** Loaded")
+@tf.function
+def distributed_train_step(train_obj, x,y):
+    per_replica_losses, per_replica_predictions = train_obj.strategy.run(train_step, args=(train_obj, x,y,))
 
-log.info("--- Distributed training ---")
-strategy = tf.distribute.MirroredStrategy()
-nb_gpu = strategy.num_replicas_in_sync
-log.info("* Found {} GPU".format(nb_gpu))
+    return train_obj.strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses,
+                         axis=None), per_replica_predictions
 
-log.info("--- Dataset ---")
-BATCH_SIZE = config.training.batch_size * strategy.num_replicas_in_sync
-ds = da.processing(config.data.dataset, BATCH_SIZE, config.data.crop_amount)
+def get_model(config):
+    log.info("--- Model ---")
+    optimizer = tf.keras.optimizers.SGD(learning_rate=config.optimizer.learning_rate, momentum=config.optimizer.momentum)
+    loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction=tf.keras.losses.Reduction.NONE)
 
-log.info("--- Model ---")
-optimizer = tf.keras.optimizers.SGD(learning_rate=config.optimizer.learning_rate, momentum=config.optimizer.momentum)
-loss = tf.keras.losses.MeanSquaredError()
-
-# Load model
-with strategy.scope():
     log.info("* Building Alexnet model...")
     model = AlexNet()
     model.compile(optimizer=optimizer, loss=loss)
     model.build((None, 227, 227, 3))
     log.info("* New model built")
+    log.info("* Summary:")
+    log.info("{}".format(model.summary()))
+    return model, loss, optimizer
 
-log.info("* Summary:")
-log.info("{}".format(model.summary()))
+def main(args):
 
-log.info("--- Checkpoint ---")
-ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)#, iterator=iterator)
-manager = tf.train.CheckpointManager(ckpt, directory=config.checkpoint.dir, checkpoint_name=config.checkpoint.name, max_to_keep=config.checkpoint.max_to_keep)
+    cfgManager = cfg.ConfigManager(args.conf)
+    config = cfgManager.get_conf()
 
-ckpt.restore(manager.latest_checkpoint)
-if manager.latest_checkpoint:
-    log.info("* Restored from {}".format(manager.latest_checkpoint))
-    last_epoch = manager.latest_checkpoint[-1]
-else:
-    log.info("* Initializing from scratch.")
+    log.info("--- Distributed training ---")
+    strategy = tf.distribute.MirroredStrategy()
+    nb_gpu = strategy.num_replicas_in_sync
+    log.info("* Found {} GPU".format(nb_gpu))
 
-# Callbacks
-tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=config.tensorboard.dir)
-callbacks = [mcc.ManageCheckpoints(manager), lrcb.LearningRateDecay(patience=3), tensorboard_callback]
-
-# Train
-log.info("Start training")
-log.info("* epochs: {}".format(config.training.epochs))
-log.info("* Processing the images. Might take a while depending on the CPU")
-model.fit(ds, epochs=config.training.epochs, callbacks=callbacks)
+    log.info("--- Dataset ---")
+    global_batch_size = config.training.batch_size * strategy.num_replicas_in_sync
+    ds_train, ds_test = da.processing(config.data.dataset, global_batch_size, config.data.crop_amount)
+    ds_train = strategy.experimental_distribute_dataset(ds_train)
 
 
+    # Load model
+    with strategy.scope():
+        model, loss, optimizer = get_model(config)
+
+        # Helpers
+        ckpt_manager = cm.CheckpointManager(ds_train, model, optimizer, config)
+        logevents = lev.LogEvents(log_dir=config.tensorboard.dir)
+        timemanager = tm.TimeManager(config.training.epochs)
+
+    # Tracking metrics
+    train_loss = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
+    train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy('train_accuracy')
+    test_loss = tf.keras.metrics.Mean('test_loss', dtype=tf.float32)
+    test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy('test_accuracy')
+
+    train_obj = obj.TrainObj(strategy, model, loss, optimizer, global_batch_size)
+
+    # Train
+    log.info("Start training")
+    log.info("* epochs: {}".format(config.training.epochs))
+    log.info("* Processing the images. Might take a while depending on the CPU")
+
+    last_epoch = int(ckpt_manager.get_last_epoch())
+    log.info("Training from epochs {} to {}".format(last_epoch, config.training.epochs))
+    for epoch in range(last_epoch, config.training.epochs):
+        log.info("Start of epoch {}".format(epoch))
+
+        for step, (x_batch_train, y_batch_train) in enumerate(ds_train):
+            loss_values, predictions = distributed_train_step(train_obj, x_batch_train, y_batch_train)
+
+            train_loss(loss_values)
+            train_accuracy(y_batch_train, predictions)
+
+        for step, (x_test, y_test) in enumerate(ds_test):
+            predictions = train_obj.model(x_test)
+            loss_value = train_obj.loss(y_test, predictions)
+
+            test_loss(loss_value)
+            test_accuracy(y_test, predictions)
+
+        # Save checkpoint
+        ckpt_manager.save(train_loss.result())
+        # Save tensorboard event log
+        logevents.log(epoch, train_loss, train_accuracy, test_loss, test_accuracy)
+        # Display timing info
+        timemanager.display(epoch)
+
+    model_path = "{}/{}".format(config.model.dir, config.model.name)
+    log.info("Saving model to {}".format(model_path))
+    model.save(model_path)
 
 
+if __name__ == '__main__':
 
+    logging.basicConfig(level=logging.INFO)
+    log = logging.getLogger(__name__)
 
-#
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--conf", default="orignal", help="'orignal' or 'test' config file")
+    args = parser.parse_args()
+
+    main(args)
