@@ -31,8 +31,6 @@ def train_step(train_obj, x, y):
 
     grads = tape.gradient(loss_value, train_obj.model.trainable_variables)
     train_obj.optimizer.apply_gradients(zip(grads, train_obj.model.trainable_variables))
-    train_obj.train_loss(loss_value)
-    train_obj.train_accuracy(y, predictions)
     return loss_value, predictions
 
 @tf.function
@@ -102,8 +100,9 @@ def main(args):
         for step, (x_batch_train, y_batch_train) in enumerate(ds_train):
             loss_values, predictions = distributed_train_step(train_obj, x_batch_train, y_batch_train)
 
-#            train_loss(loss_values)
-#            train_accuracy(y_batch_train, predictions)
+            with strategy.scope():
+                train_loss(loss_values)
+                train_accuracy(y_batch_train, predictions)
 
         for step, (x_test, y_test) in enumerate(ds_test):
             predictions = train_obj.model(x_test)
