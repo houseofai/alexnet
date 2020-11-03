@@ -31,6 +31,7 @@ def train_step(train_obj, x, y):
 
     grads = tape.gradient(loss_value, train_obj.model.trainable_variables)
     train_obj.optimizer.apply_gradients(zip(grads, train_obj.model.trainable_variables))
+    train_obj.train_loss(loss_value)
     train_obj.train_accuracy(y, predictions)
     return loss_value, predictions
 
@@ -86,7 +87,7 @@ def main(args):
     test_loss = tf.keras.metrics.Mean('test_loss', dtype=tf.float32)
     test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy('test_accuracy')
 
-    train_obj = obj.TrainObj(strategy, model, loss, optimizer, global_batch_size, train_accuracy)
+    train_obj = obj.TrainObj(strategy, model, loss, optimizer, global_batch_size, train_loss, train_accuracy)
 
     # Train
     log.info("Start training")
@@ -101,7 +102,7 @@ def main(args):
         for step, (x_batch_train, y_batch_train) in enumerate(ds_train):
             loss_values, predictions = distributed_train_step(train_obj, x_batch_train, y_batch_train)
 
-            train_loss(loss_values)
+#            train_loss(loss_values)
 #            train_accuracy(y_batch_train, predictions)
 
         for step, (x_test, y_test) in enumerate(ds_test):
