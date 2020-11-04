@@ -1,8 +1,29 @@
 # AlexNet
 This project intend to replicate the AlexNet CNN network by stricly following the original paper.
 
+### TODO
+
+- [ ] 2 Dataset: To find ImageNet 2010
+- [X] 3.1 ReLU Nonlinearity
+- [ ] 3.2 Training on Multiple GPUs: To split model on two GPUs
+- [X] 3.3 Local Response Normalization
+- [X] 3.4 Overalapping Pooling
+- [X] 3.5 Overall Architecture
+- [ ] 4.1 Data Augmentation:
+- [ ]   Altering intensities of the RGB channels
+- [ ]   Patch and horizontal flip for testing
+- [X] 4.2 Dropout
+- [ ] 5 Details of learning:
+- [ ]   Learning Rate Decay
+
+- [ ] Predict task
+- [ ] Evaluate task
+
+### Dataset
+
 ### Prerequisites
 
+- Python 3.7.9
 - Tensorflow 2.3.1
 ```
 pip install tensorflow-gpu==2.3.1
