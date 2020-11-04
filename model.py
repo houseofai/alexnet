@@ -8,6 +8,8 @@ class AlexNet(tf.keras.Model):
         initializer = tf.keras.initializers.RandomNormal(mean=0., stddev=0.01)
         bias = tf.keras.initializers.Ones()
         bias0 = tf.keras.initializers.Zeros()
+        self.drop = tf.keras.layers.Dropout(.5)
+
         # Input is 227 and not 224 as stated on the paper.
         # See issue: https://stackoverflow.com/questions/36733636/the-number-of-neurons-in-alexnet
         self.conv1_1 = tf.keras.layers.Conv2D(48, 11, strides=4, activation="relu", input_shape=[227,227,3], kernel_initializer=initializer, bias_initializer=bias0)
@@ -82,11 +84,11 @@ class AlexNet(tf.keras.Model):
         x = self.flatten(x)
 
         # GPU1
-        x1 = self.fc1_1(x)
-        x1 = self.fc2_1(x1)
+        x1 = self.drop(self.fc1_1(x))
+        x1 = self.drop(self.fc2_1(x1))
         # GPU2
-        x2 = self.fc1_2(x)
-        x2 = self.fc2_2(x2)
+        x2 = self.drop(self.fc1_2(x))
+        x2 = self.drop(self.fc2_2(x2))
 
         x = tf.keras.layers.concatenate([x1,x2])
 
