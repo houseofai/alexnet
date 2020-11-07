@@ -5,7 +5,7 @@ This project intend to replicate the AlexNet CNN network by stricly following th
 
 - [ ] 2 Dataset: Find ImageNet 2010
 - [X] 3.1 ReLU Nonlinearity
-- [ ] 3.2 Training on Multiple GPUs: To split model on two GPUs
+- [X] 3.2 Training on Multiple GPUs: To split model on two GPUs
 - [X] 3.3 Local Response Normalization
 - [X] 3.4 Overalapping Pooling
 - [X] 3.5 Overall Architecture
@@ -59,10 +59,17 @@ To train the model, launch the following command:
 ### Main Folders
 
 ├── checkpoints         Checkpoints from training
+
 ├── config              Configuration files
-│   ├── original.yml
-│   └── test.yml
+
+|       ├── original.yml
+
+|       └── test.yml
+
 ├── docker              Files to build a Docker image
-│   ├── Dockerfile
-│   ├── dataloader.py
-│   └── setup.sh
+
+|       ├── Dockerfile
+
+├── dataloader.py
+
+└── setup.sh
