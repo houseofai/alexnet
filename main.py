@@ -15,6 +15,7 @@ import tensorflow as tf
 def predict(config, image_path):
     training = tr.Train(config)
     img = tf.keras.utils.get_file(origin=image_path)
+    # TODO Transform
     cm.CheckpointManager(img, training.model, training.optimizer, config)
     training.predict(img)
 
@@ -23,46 +24,36 @@ def train(config):
     training = tr.Train(config)
 
     log.info("--- Dataset ---")
-    ds_train, ds_test = da.processing(config.data.dataset, training.global_batch_size)
-    ds_train = training.distribute_dataset(ds_train)
-    ds_test = training.distribute_dataset(ds_test)
+    ds_train, ds_test = da.processing(config.data.dataset, config.training.batch_size, config.data.crop_amount)
 
-    with training.strategy.scope():
-        # Helpers
-        ckpt_manager = cm.CheckpointManager(ds_train, training.model, training.optimizer, config)
-        logevents = lev.LogEvents(log_dir=config.tensorboard.dir)
-        timemanager = tm.TimeManager(config.training.epochs)
+    # Helpers
+    #ckpt_manager = cm.CheckpointManager(ds_train, training.model, training.optimizer, config)
+    logevents = lev.LogEvents(log_dir=config.tensorboard.dir)
+    timemanager = tm.TimeManager(config.training.epochs)
 
     # Train
     log.info("Start training")
     log.info("* epochs: {}".format(config.training.epochs))
     log.info("* Processing the images. Might take a while depending on the CPU")
 
-    last_epoch = int(ckpt_manager.get_last_epoch())
+    last_epoch = 0 #int(ckpt_manager.get_last_epoch())
     log.info("Training from epochs {} to {}".format(last_epoch, config.training.epochs))
     for epoch in range(last_epoch, config.training.epochs):
         log.info("Start of epoch {}".format(epoch))
 
-        total_loss = 0.0
-        num_batches = 0
-
         for x_batch_train, y_batch_train in ds_train:
-            total_loss += training.distributed_train(x_batch_train, y_batch_train)
-            num_batches += 1
+            training.train(x_batch_train, y_batch_train)
 
-        training.train_loss.update_state(total_loss / num_batches)
+        for x_test, y_test in ds_test:
+            training.test(x_test, y_test)
 
-        for step, (x_test, y_test) in enumerate(ds_test):
-            training.distributed_test(x_test, y_test)
-
-        with training.strategy.scope():
-            # Save checkpoint
-            ckpt_manager.save(training.train_loss.result())
-            # Save tensorboard event log
-            logevents.log(epoch, training.train_loss, training.train_accuracy, training.test_loss,
-                          training.test_accuracy)
-            # Display timing info
-            timemanager.display(epoch)
+        # Save checkpoint
+        #ckpt_manager.save(training.train_loss.result())
+        # Save tensorboard event log
+        logevents.log(epoch, training.train_loss, training.train_accuracy, training.test_loss,
+                      training.test_accuracy)
+        # Display timing info
+        timemanager.display(epoch)
 
     training.save()
 
