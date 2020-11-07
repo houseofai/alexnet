@@ -3,7 +3,7 @@ This project intend to replicate the AlexNet CNN network by stricly following th
 
 ### TODO
 
-- [ ] 2 Dataset: To find ImageNet 2010
+- [ ] 2 Dataset: Find ImageNet 2010
 - [X] 3.1 ReLU Nonlinearity
 - [ ] 3.2 Training on Multiple GPUs: To split model on two GPUs
 - [X] 3.3 Local Response Normalization
@@ -16,8 +16,7 @@ This project intend to replicate the AlexNet CNN network by stricly following th
 - [ ] 5 Details of learning:
 - [ ]   Learning Rate Decay
 
-- [ ] Predict task
-- [ ] Evaluate task
+- [X] Predict task
 
 ### Dataset
 
