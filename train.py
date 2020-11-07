@@ -9,37 +9,23 @@ class Train:
 
     def __init__(self, config):
         self.log = logging.getLogger(__name__)
-        self.log.info("--- Distributed training ---")
-        self.strategy = tf.distribute.MirroredStrategy()
-        nb_gpu = self.strategy.num_replicas_in_sync
-        self.log.info("* Found {} GPU".format(nb_gpu))
-        self.global_batch_size = config.training.batch_size * self.strategy.num_replicas_in_sync
+
         self.model_path = "{}/{}".format(config.model.dir, config.model.name)
 
-        with self.strategy.scope():
-            self.optimizer = tf.keras.optimizers.SGD(lr=config.optimizer.learning_rate,
-                                                     momentum=config.optimizer.momentum)
-            self.loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True,
-                                                                      reduction=tf.keras.losses.Reduction.NONE)
-            self.__init_model()
-            self.train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy('train_accuracy')
-            self.test_accuracy = tf.keras.metrics.SparseCategoricalAccuracy('test_accuracy')
-            self.test_loss = tf.keras.metrics.Mean('test_loss', dtype=tf.float32)
-        # Train loss is processed over the scope
-        self.train_loss = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
+        self.optimizer = tf.keras.optimizers.SGD(lr=config.optimizer.learning_rate,
+                                                 momentum=config.optimizer.momentum)
+        self.loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+        self.__init_model()
+
+        self.__init_metrics()
 
     def __init_model(self):
         self.log.info("--- Model ---")
 
-        with self.strategy.scope():
-            self.log.info("* Building Lenet model...")
-            self.model = AlexNet()
-            self.model.compile(optimizer=self.optimizer, loss=self.loss)
-            self.model.build((None, 227, 227, 3))
+        self.log.info("* Building AlexNet model...")
+        self.model = AlexNet()
 
         self.log.info("* New model built")
-        self.log.info("* Summary:")
-        self.log.info("{}".format(self.model.summary()))
 
     def __init_metrics(self):
         self.train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy('train_accuracy')
@@ -47,46 +33,44 @@ class Train:
         self.train_loss = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
         self.test_loss = tf.keras.metrics.Mean('test_loss', dtype=tf.float32)
 
-    def distribute_dataset(self, ds):
-        return self.strategy.experimental_distribute_dataset(ds)
-
-    @tf.function
-    def distributed_train(self, x, y):
-        per_replica_losses = self.strategy.run(self.train, args=(x, y,))
-        return self.strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
-
-    @tf.function
-    def distributed_test(self, x, y):
-        self.strategy.run(self.test, args=(x, y,))
+    def __init_gpus(self):
+        self.log.info("--- GPU ---")
+        self.gpus = tf.config.experimental.list_physical_devices('GPU')
+        if self.gpus is None:
+            self.log.info("* No GPU found")
+        elif len(self.gpus) < 2:
+            self.log.info("* Found {} GPUs. Need at least 2 GPUs".format(len(self.gpus)))
+        else:
+            self.log.info("* Found {} GPUs".format(len(self.gpus)))
+            for gpu in self.gpus:
+                print("* Name:", gpu.name, "  Type:", gpu.device_type)
 
     def train(self, x, y):
         with tf.GradientTape() as tape:
             predictions = self.model(x, training=True)
-            loss = self.loss(y, predictions)
-            replicas_losses = tf.nn.compute_average_loss(loss, global_batch_size=self.global_batch_size)
+            t_loss = self.loss(y, predictions)
 
-        grads = tape.gradient(replicas_losses, self.model.trainable_variables)
+        grads = tape.gradient(t_loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
+        self.train_loss.update_state(t_loss)
         self.train_accuracy.update_state(y, predictions)
 
-        return replicas_losses
-
     def test(self, x, y):
-        predictions = self.model(x)
-        loss_value = self.loss(y, predictions)
+        predictions = self.model(x, y)
+        t_loss = self.loss(y, predictions)
 
-        self.test_loss.update_state(loss_value)
+        self.test_loss.update_state(t_loss)
         self.test_accuracy.update_state(y, predictions)
 
     def predict(self, x):
-        outputs = self.model.predict(x)
+        predictions = self.model(x)
 
-        self.log.info("Outputs Shape:", outputs.shape)
-        self.log.info("Outputs Max:", max(outputs[0]))
-        self.log.info("Outputs Index:", np.argmax(outputs[0]))
-        return outputs
+        self.log.info("Outputs Shape:", predictions.shape)
+        self.log.info("Outputs Max:", max(predictions[0]))
+        self.log.info("Outputs Index:", np.argmax(predictions[0]))
+        return predictions
 
     def save(self):
         self.log.info("Saving model to {}".format(self.model_path))
-        self.model.save(self.model_path)
+        # self.model.save(self.model_path)

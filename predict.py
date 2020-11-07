@@ -1,7 +1,6 @@
 from model import AlexNet
 import tensorflow as tf
 import logging
-import sys
 import numpy as np
 
 from sklearn.datasets import load_sample_image
