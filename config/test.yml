@@ -18,7 +18,7 @@ checkpoint:
   max_to_keep: 3
 
 optimizer:
-  learning_rate: 0.0005
+  learning_rate: 0.1
   momentum: 0.9
 
 tensorboard:
