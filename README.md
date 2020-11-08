@@ -12,7 +12,7 @@ ___
 - [X] 3.5 Overall Architecture
 - [ ] 4.1 Data Augmentation:
 - [ ] Altering intensities of the RGB channels
-- [ ]   Patch and horizontal flip for testing
+- [X]   Patch and horizontal flip for testing
 - [X] 4.2 Dropout
 - [X] 5 Details of learning:
 - [X]   Learning Rate Decay
