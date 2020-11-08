@@ -3,6 +3,7 @@ training:
   epochs: 3
   batch_size: 128
   input_size: (227,227,3)
+  patience: 3
 
 model:
   dir: models
@@ -23,3 +24,4 @@ optimizer:
 
 tensorboard:
   dir: logs
+  debug: True
