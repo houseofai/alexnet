@@ -22,15 +22,20 @@ def debug(dir):
 
 
 def predict(config, image_path):
+    log.info("--- Load Model ---")
     training = tr.Train(config)
-    img = tf.keras.utils.get_file(origin=image_path)
-    # TODO Transform
     cm.CheckpointManager(training.model, training.optimizer, config)
+
+    log.info("--- Load and Transform the image ---")
+    img = tf.keras.utils.get_file(origin=image_path)
+    img = da.transform(img)
+
+    log.info("--- Predict ---")
     predictions = training.predict(img)
 
-    log.info("Outputs Shape:", predictions.shape)
-    log.info("Outputs Max:", max(predictions[0]))
-    log.info("Outputs Index:", np.argmax(predictions[0]))
+    log.info("* Outputs Shape:", predictions.shape)
+    log.info("* Outputs Max:", max(predictions[0]))
+    log.info("* Outputs Index:", np.argmax(predictions[0]))
 
 
 def train(config):
@@ -41,7 +46,8 @@ def train(config):
         debug(config.tensorboard.dir)
 
     log.info("--- Dataset ---")
-    ds_train, ds_test = da.processing(config.data.dataset, config.training.batch_size, config.data.crop_amount)
+    ds_train = da.prepare_trainset(config.data.dataset, config.training.batch_size, config.data.crop_amount)
+    ds_test = da.prepare_testset(config.data.dataset, config.training.batch_size)
     ds_size = tf.data.experimental.cardinality(ds_train).numpy()
 
     # Helpers
