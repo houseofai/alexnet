@@ -13,6 +13,11 @@ def transform(image, label):
     return image, label
 
 
+def transform(image):
+    image = tf.image.resize(image, [227, 227])
+    return image
+
+
 def crop(image, label):
     image = tf.image.random_crop(image, size=[227, 227, 3])
     return image, label
@@ -49,15 +54,13 @@ def fliph(image, label):
     return image, label
 
 
-def processing(ds_name, batch_size, crop_amount):
-    log.info("* Loading dataset")
+def prepare_trainset(ds_name, batch_size, crop_amount):
+    log.info("* Loading train dataset")
     ds_train = tfds.load(ds_name, split='test[:80%]', as_supervised=True)
-    ds_test = tfds.load(ds_name, split='test[80%:]', as_supervised=True)
 
     log.info("* Transforming the dataset:")
     log.info("** Resize")
     ds_train = ds_train.map(transform)
-    ds_test = ds_test.map(transform)
 
     log.info("** Flipping horizontally")
     ds_train = ds_train.concatenate(ds_train.map(fliph))
@@ -72,6 +75,20 @@ def processing(ds_name, batch_size, crop_amount):
     log.info("** Cropping Train Set")
     ds_train = ds_train.map(crop)
 
+    ds_file_size = tf.data.experimental.cardinality(ds_train)
+    log.info("* Train Dataset size estimation: {}".format(ds_file_size))
+
+    return ds_train.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
+
+
+def prepare_testset(ds_name, batch_size):
+    log.info("* Loading test dataset")
+    ds_test = tfds.load(ds_name, split='test[80%:]', as_supervised=True)
+
+    log.info("* Transforming the dataset:")
+    log.info("** Resize")
+    ds_test = ds_test.map(transform)
+
     log.info("** Patching Test Set")
     ds_test_patches = patches(ds_test.batch(tf.cast(tf.divide(batch_size, 4), dtype=tf.int64)))
 
@@ -79,10 +96,6 @@ def processing(ds_name, batch_size, crop_amount):
     ds_test = ds_test.map(center_crop)
     ds_test = ds_test.concatenate(ds_test_patches)
 
-    ds_file_size = tf.data.experimental.cardinality(ds_train)  # *crop_amount*2
-    log.info("* Train Dataset size estimation: {}".format(ds_file_size))
-    ds_file_size = tf.data.experimental.cardinality(ds_test)  # *crop_amount*2
+    ds_file_size = tf.data.experimental.cardinality(ds_test)
     log.info("* Test Dataset size estimation: {}".format(ds_file_size))
-
-    return ds_train.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE), \
-           ds_test.batch(1)
+    return ds_test.batch(batch_size)
