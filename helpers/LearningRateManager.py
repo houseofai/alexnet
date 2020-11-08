@@ -1,13 +1,26 @@
-import traceback
-import tensorflow as tf
+import numpy as np
+import logging
 
-class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
-    def __init__(self, config, train_loss):
-        super(CustomSchedule, self).__init__()
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
-        self.lr = config.optimizer.learning_rate
-        self.loss = train_loss
 
-    def __call__(self, step):
-        print("MY LOSS: ", self.loss.result())
-        return self.lr
+class LearningRateDecay:
+    def __init__(self, patience):
+        self.patience = patience
+        self.wait = 0
+        self.best_loss = np.Inf
+
+    def early_stop(self, loss):
+        early_stop = False
+        if loss < self.best_loss:
+            log.info("Current Loss ({}) better than previous loss ({})".format(loss, self.best_loss))
+            self.best_loss = loss
+            self.wait = 0
+        elif self.wait >= self.patience:
+            log.info("Loss hasn't decreased for the past {} epochs".format(self.patience))
+            early_stop = True
+        else:
+            self.wait += 1
+
+        return early_stop
