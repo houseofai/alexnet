@@ -5,12 +5,15 @@ import numpy as np
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
 
-class CheckpointManager():
-    def __init__(self, dataset, model, optimizer, config):
+
+class CheckpointManager:
+    def __init__(self, model, optimizer, config):
         log.info("--- Checkpoint ---")
-        #iterator = iter(dataset)
-        self.ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)#, iterator=iterator)
-        self.manager = tf.train.CheckpointManager(self.ckpt, directory=config.checkpoint.dir, checkpoint_name=config.checkpoint.name, max_to_keep=config.checkpoint.max_to_keep)
+        # iterator = iter(dataset)
+        self.ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)
+        self.manager = tf.train.CheckpointManager(self.ckpt, directory=config.checkpoint.dir,
+                                                  checkpoint_name=config.checkpoint.name,
+                                                  max_to_keep=config.checkpoint.max_to_keep)
         self.last_loss = np.Inf
         self.model = model
         self.ckpt_dir = config.checkpoint.dir
@@ -32,7 +35,7 @@ class CheckpointManager():
         self.ckpt.step.assign_add(1)
         self.__save_best(loss)
         save_path = self.manager.save()
-        #print("Saved checkpoint for step {}: {}".format(int(ckpt.step), save_path))
+        log.info("Saved checkpoint for step {}: {}".format(int(self.ckpt.step), save_path))
 
     def __save_best(self, loss):
         if loss < self.last_loss:
