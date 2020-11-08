@@ -17,7 +17,7 @@ import train as tr
 
 def debug(dir):
     mytime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    tf.debugging.experimental.enable_dump_debug_info(dir + mytime, tensor_debug_mode="FULL_HEALTH",
+    tf.debugging.experimental.enable_dump_debug_info(dir + "/" + mytime, tensor_debug_mode="FULL_HEALTH",
                                                      circular_buffer_size=-1)
 
 
