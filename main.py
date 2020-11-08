@@ -1,59 +1,85 @@
-# Internal libs
+# Standard library imports
+import logging
+import argparse
+import datetime
+# Related third party imports
+import numpy as np
+import tensorflow as tf
+# Local application/library specific imports
 from helpers import LogEvents as lev
 from helpers import TimeManager as tm
 from helpers import CheckpointManager as cm
+from helpers import LearningRateManager as lrm
 from config import ConfigManager as cfg
 import data_augmentation as da
 import train as tr
-# 3rd party sys libs
-import logging
-import argparse
-# 3rd party frameworks
-import tensorflow as tf
+
+
+def debug(dir):
+    mytime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    tf.debugging.experimental.enable_dump_debug_info(dir + mytime, tensor_debug_mode="FULL_HEALTH",
+                                                     circular_buffer_size=-1)
 
 
 def predict(config, image_path):
     training = tr.Train(config)
     img = tf.keras.utils.get_file(origin=image_path)
     # TODO Transform
-    cm.CheckpointManager(img, training.model, training.optimizer, config)
-    training.predict(img)
+    cm.CheckpointManager(training.model, training.optimizer, config)
+    predictions = training.predict(img)
+
+    log.info("Outputs Shape:", predictions.shape)
+    log.info("Outputs Max:", max(predictions[0]))
+    log.info("Outputs Index:", np.argmax(predictions[0]))
 
 
 def train(config):
     training = tr.Train(config)
 
+    if config.tensorboard.debug:
+        log.info("--- Debug activated ---")
+        debug(config.tensorboard.dir)
+
     log.info("--- Dataset ---")
     ds_train, ds_test = da.processing(config.data.dataset, config.training.batch_size, config.data.crop_amount)
+    ds_size = tf.data.experimental.cardinality(ds_train).numpy()
 
     # Helpers
-    #ckpt_manager = cm.CheckpointManager(ds_train, training.model, training.optimizer, config)
+    lrd = lrm.LearningRateDecay(config.training.patience)
+    ckpt_manager = cm.CheckpointManager(training.model, training.optimizer, config)
     logevents = lev.LogEvents(log_dir=config.tensorboard.dir)
-    timemanager = tm.TimeManager(config.training.epochs)
+    timemanager = tm.TimeManager(config.training.epochs, ds_size)
 
     # Train
     log.info("Start training")
     log.info("* epochs: {}".format(config.training.epochs))
     log.info("* Processing the images. Might take a while depending on the CPU")
 
-    last_epoch = 0 #int(ckpt_manager.get_last_epoch())
+    last_epoch = int(ckpt_manager.get_last_epoch())
     log.info("Training from epochs {} to {}".format(last_epoch, config.training.epochs))
     for epoch in range(last_epoch, config.training.epochs):
         log.info("Start of epoch {}".format(epoch))
 
-        for x_batch_train, y_batch_train in ds_train:
-            training.train(x_batch_train, y_batch_train)
+        for step, (x_batch, y_batch) in enumerate(ds_train):
+            training.train(x_batch, y_batch)
+
+            # Display timing info
+            timemanager.display_batch(step, training.train_loss.result())
 
         for x_test, y_test in ds_test:
             training.test(x_test, y_test)
 
         # Save checkpoint
-        #ckpt_manager.save(training.train_loss.result())
+        ckpt_manager.save(training.train_loss.result())
         # Save tensorboard event log
         logevents.log(epoch, training.train_loss, training.train_accuracy, training.test_loss,
                       training.test_accuracy)
         # Display timing info
         timemanager.display(epoch)
+
+        if lrd.early_stop(training.train_loss.result()):
+            log.info("Early Stop !")
+            break
 
     training.save()
 
