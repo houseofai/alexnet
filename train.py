@@ -1,7 +1,6 @@
 import logging
 import tensorflow as tf
 from model import AlexNet
-import numpy as np
 
 
 class Train:
@@ -57,20 +56,18 @@ class Train:
         self.train_accuracy.update_state(y, predictions)
 
     def test(self, x, y):
-        predictions = self.model(x, y)
+        predictions = self.model(x)
         t_loss = self.loss(y, predictions)
 
         self.test_loss.update_state(t_loss)
         self.test_accuracy.update_state(y, predictions)
 
+        return predictions, t_loss
+
     def predict(self, x):
         predictions = self.model(x)
-
-        self.log.info("Outputs Shape:", predictions.shape)
-        self.log.info("Outputs Max:", max(predictions[0]))
-        self.log.info("Outputs Index:", np.argmax(predictions[0]))
         return predictions
 
     def save(self):
         self.log.info("Saving model to {}".format(self.model_path))
-        # self.model.save(self.model_path)
+        self.model.save(self.model_path)
