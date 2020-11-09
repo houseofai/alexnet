@@ -4,26 +4,41 @@ import tensorflow_datasets as tfds
 import logging
 import sys
 
+"""
+Methods to prepare and augment data
+"""
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
 def transform(image, label):
+    """
+    Resize image to 256x256
+    :param image: The image to resize
+    :param label: A label (not affected)
+    :return: The resized image and the label
+    """
     image = tf.image.resize(image, [256, 256])
     return image, label
 
 
-def transform(image):
-    image = tf.image.resize(image, [227, 227])
-    return image
-
-
 def crop(image, label):
+    """
+    Crop an image to 227x227
+    :param image: The image to crop
+    :param label: A label (not affected)
+    :return: The cropped image and the label
+    """
     image = tf.image.random_crop(image, size=[227, 227, 3])
     return image, label
 
 
 def patches(ds):
+    """
+    Augment a dataset by creating four patches of size 227x227 (top-left, top right, bottom-left, bottom-right) from the images
+    :param ds: The dataset containing the images and the labels
+    :return: A new dataset with the patches and the corresponding labels
+    """
     all_patches = None
     all_labels = None
     repeat = 4
@@ -45,16 +60,35 @@ def patches(ds):
 
 
 def center_crop(image, label):
+    """
+    Center crop an image
+    :param image: The image to center crop
+    :param label: A label (not affected)
+    :return: The cropped image and the label
+    """
     image = tf.image.central_crop(image, central_fraction=0.89)
     return image, label
 
 
 def fliph(image, label):
+    """
+    Flip horizontally an image
+    :param image: The image to flip
+    :param label: A label (not affected)
+    :return: The flipped image and the label
+    """
     image = tf.image.flip_left_right(image)
     return image, label
 
 
 def prepare_trainset(ds_name, batch_size, crop_amount):
+    """
+    Prepare a dataset for training
+    :param ds_name: The name of the dataset to download from Tensorflow Dataset
+    :param batch_size: The batch size of the dataset
+    :param crop_amount: The amount of cropped images
+    :return: The train set
+    """
     log.info("* Loading train dataset")
     ds_train = tfds.load(ds_name, split='test[:80%]', as_supervised=True)
 
@@ -82,6 +116,12 @@ def prepare_trainset(ds_name, batch_size, crop_amount):
 
 
 def prepare_testset(ds_name, batch_size):
+    """
+    Prepare a dataset for testing
+    :param ds_name: The name of the dataset to download from Tensorflow Dataset
+    :param batch_size: The batch size of the dataset
+    :return: The Test set
+    """
     log.info("* Loading test dataset")
     ds_test = tfds.load(ds_name, split='test[80%:]', as_supervised=True)
 

@@ -2,26 +2,37 @@
 import logging
 import argparse
 import datetime
+
 # Related third party imports
 import numpy as np
 import tensorflow as tf
+
 # Local application/library specific imports
 from helpers import LogEvents as lev
 from helpers import TimeManager as tm
 from helpers import CheckpointManager as cm
-from helpers import LearningRateManager as lrm
+from helpers import EarlyStopManager as esm
 from config import ConfigManager as cfg
 import data_augmentation as da
 import train as tr
 
 
 def debug(dir):
+    """
+    Set debug mode
+    :param dir: Directory where debug files will be stored
+    """
     mytime = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     tf.debugging.experimental.enable_dump_debug_info(dir + "/" + mytime, tensor_debug_mode="FULL_HEALTH",
                                                      circular_buffer_size=-1)
 
 
 def predict(config, image_path):
+    """
+    Predict classes probabilities for one image
+    :param config: Configuration parameters for the trainer and the checkpoint manager
+    :param image_path: Path to the image
+    """
     log.info("--- Load Model ---")
     training = tr.Train(config)
     cm.CheckpointManager(training.model, training.optimizer, config)
@@ -39,6 +50,10 @@ def predict(config, image_path):
 
 
 def train(config):
+    """
+    Train the AlexNet model
+    :param config: Configuration parameters
+    """
     training = tr.Train(config)
 
     if config.tensorboard.debug:
@@ -51,7 +66,7 @@ def train(config):
     ds_size = tf.data.experimental.cardinality(ds_train).numpy()
 
     # Helpers
-    lrd = lrm.LearningRateDecay(config.training.patience)
+    lrd = esm.EarlyStop(config.training.patience)
     ckpt_manager = cm.CheckpointManager(training.model, training.optimizer, config)
     logevents = lev.LogEvents(log_dir=config.tensorboard.dir)
     timemanager = tm.TimeManager(config.training.epochs, ds_size)
@@ -83,14 +98,21 @@ def train(config):
         # Display timing info
         timemanager.display(epoch)
 
-        if lrd.early_stop(training.train_loss.result()):
+        if lrd.check(training.train_loss.result()):
             log.info("Early Stop !")
             break
 
-    training.save()
-
 
 if __name__ == '__main__':
+    """
+    Start of the program to train/predict/evaluate
+    """
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--conf", default="orignal", help="'orignal' or 'test' config file")
+    parser.add_argument("--mode", default="train", help="train or predict")
+    parser.add_argument("--image", default="", help="path to an image (test mode)")
+    args = parser.parse_args()
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
     for gpu in gpus:
@@ -98,12 +120,6 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     log = logging.getLogger(__name__)
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--conf", default="orignal", help="'orignal' or 'test' config file")
-    parser.add_argument("--mode", default="train", help="train or predict")
-    parser.add_argument("--image", default="", help="path to an image (test mode)")
-    args = parser.parse_args()
 
     config_manager = cfg.ConfigManager(args.conf)
     config = config_manager.get_conf()
