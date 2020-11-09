@@ -80,7 +80,7 @@ class AlexNet(tf.keras.Model):
         :return: The predicted probability for the input
         """
         with tf.device('/GPU:0'):
-            x1 = self.conv1_1(input)
+            x1 = self.conv1_1(inputs)
             x1 = tf.nn.local_response_normalization(x1, depth_radius=5, bias=2, alpha=0.001, beta=0.75)
             x1 = self.max_pool(x1)
             x1 = self.conv2_1(x1)
@@ -88,7 +88,7 @@ class AlexNet(tf.keras.Model):
             x1 = self.max_pool(x1)
 
         with tf.device('/GPU:1'):
-            x2 = self.conv1_2(input)
+            x2 = self.conv1_2(inputs)
             x2 = tf.nn.local_response_normalization(x2, depth_radius=5, bias=2, alpha=0.001, beta=0.75)
             x2 = self.max_pool(x2)
             x2 = self.conv2_2(x2)
