@@ -13,7 +13,7 @@ from helpers import TimeManager as tm
 from helpers import CheckpointManager as cm
 from helpers import EarlyStopManager as esm
 from config import ConfigManager as cfg
-import data_augmentation as da
+from data import data_augmentation as da
 import train as tr
 
 

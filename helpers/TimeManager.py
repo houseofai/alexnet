@@ -44,6 +44,6 @@ class TimeManager:
         if step % self.log_step == 0:
             exec_time = time.perf_counter() - self.last_ba_time
             remain_time = (self.dataset_size-step)*exec_time
-            log.info("\t[Step:{}] - Execution time: {:.4} - ETA: {} - Loss: {:.4}"
+            log.info("\t[Step:{}] - Execution time: {:.4} - ETA: {} - Loss: {:.6}"
                      .format(step, exec_time, remain_time, loss))
             self.last_ba_time = time.perf_counter()

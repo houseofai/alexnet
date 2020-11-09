@@ -2,7 +2,8 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import logging
-import sys
+
+from data.PCAColorAugmentation import PCAColorAugmentation
 
 """
 Methods to prepare and augment data
@@ -81,6 +82,45 @@ def fliph(image, label):
     return image, label
 
 
+pca = PCAColorAugmentation()
+
+
+def pca_color_augmentation(image, label):
+    """
+    Augment colors on principal components of an image
+    :param image: The image to find PCA on
+    :param label: A label (not affected)
+    :return: The augmented image and the label
+    """
+    image = pca.augmentation(image)
+    return image, label
+
+
+def pca_color_augmentation_numpy(image_array_input):
+    """
+    Principal Component Analysis
+    Code taken from: https://github.com/koshian2/PCAColorAugmentation/blob/master/pca_aug_numpy_single.py
+    :param image_array_input:
+    :return: The image augmented
+    """
+    assert image_array_input.ndim == 3 and image_array_input.shape[2] == 3
+    assert image_array_input.dtype == np.uint8
+
+    img = image_array_input.reshape(-1, 3).astype(np.float32)
+    scaling_factor = np.sqrt(3.0 / np.sum(np.var(img, axis=0)))
+    img *= scaling_factor
+
+    cov = np.cov(img, rowvar=False)
+    U, S, V = np.linalg.svd(cov)
+
+    rand = np.random.randn(3) * 0.1
+    delta = np.dot(U, rand * S)
+    delta = (delta * 255.0).astype(np.int32)[np.newaxis, np.newaxis, :]
+
+    img_out = np.clip(image_array_input + delta, 0, 255).astype(np.uint8)
+    return img_out
+
+
 def prepare_trainset(ds_name, batch_size, crop_amount):
     """
     Prepare a dataset for training
@@ -89,12 +129,16 @@ def prepare_trainset(ds_name, batch_size, crop_amount):
     :param crop_amount: The amount of cropped images
     :return: The train set
     """
+
     log.info("* Loading train dataset")
     ds_train = tfds.load(ds_name, split='test[:80%]', as_supervised=True)
 
     log.info("* Transforming the dataset:")
     log.info("** Resize")
     ds_train = ds_train.map(transform)
+
+    log.info("** Augment colors on Principal Components")
+    ds_train = ds_train.map(pca_color_augmentation)
 
     log.info("** Flipping horizontally")
     ds_train = ds_train.concatenate(ds_train.map(fliph))
