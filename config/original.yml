@@ -3,7 +3,7 @@ training:
   epochs: 90
   batch_size: 128
   input_size: (227,227,3)
-    patience: 3
+  patience: 3
 
 model:
   dir: models
