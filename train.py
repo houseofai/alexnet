@@ -20,7 +20,7 @@ class Train:
         """
         self.log = logging.getLogger(__name__)
 
-        self.model_path = "{}/{}".format(config.model.dir, config.model.name)
+        #self.model_path = "{}/{}".format(config.model.dir, config.model.name)
 
         self.optimizer = tf.keras.optimizers.SGD(lr=config.optimizer.learning_rate,
                                                  momentum=config.optimizer.momentum)
