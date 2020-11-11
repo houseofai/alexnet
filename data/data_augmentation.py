@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import logging
+import resource
 
 from data.PCAColorAugmentation import PCAColorAugmentation
 
@@ -12,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
 
-def transform(image, label):
+def resize(image, label):
     """
     Resize image to 256x256
     :param image: The image to resize
@@ -49,12 +50,13 @@ def patches(ds):
                                                 strides=[1, 29, 29, 1],
                                                 rates=[1, 1, 1, 1],
                                                 padding='VALID')
+        four_labels = np.repeat(labels, repeat)
         if all_patches is None:
             all_patches = four_patches
-            all_labels = np.repeat(labels, repeat)
+            all_labels = four_labels
         else:
             all_patches = np.concatenate((all_patches, four_patches), axis=0)
-            all_labels = np.concatenate((all_labels, np.repeat(labels, repeat)), axis=0)
+            all_labels = np.concatenate((all_labels, four_labels), axis=0)
 
     all_patches = tf.reshape(all_patches, [all_patches.shape[0] * 2 * 2, 227, 227, 3])
     return tf.data.Dataset.from_tensor_slices((all_patches, all_labels))
@@ -68,7 +70,13 @@ def center_crop(image, label):
     :return: The cropped image and the label
     """
     image = tf.image.central_crop(image, central_fraction=0.89)
+    image = tf.image.resize(image, [227, 227])
     return image, label
+
+
+def normalize(image, label):
+    """Normalizes images: `uint8` -> `float32`."""
+    return tf.cast(image, tf.float32) / 255., label
 
 
 def fliph(image, label):
@@ -121,37 +129,48 @@ def pca_color_augmentation_numpy(image_array_input):
     return img_out
 
 
-def prepare_trainset(ds_name, batch_size, crop_amount):
+def prepare_trainset(ds_name, split, batch_size, augment, crop_amount):
     """
     Prepare a dataset for training
     :param ds_name: The name of the dataset to download from Tensorflow Dataset
     :param batch_size: The batch size of the dataset
+    :param augment: Boolean. Whether to augment data or not
     :param crop_amount: The amount of cropped images
     :return: The train set
     """
+    # Fix for 'Too many open files' issue #1441: https://github.com/tensorflow/datasets/issues/1441
+    #low, high = resource.getrlimit(resource.RLIMIT_NOFILE)
+    #print("###LIMITS", low, high)
+    #resource.setrlimit(resource.RLIMIT_NOFILE, (high, high))
 
     log.info("* Loading train dataset")
-    ds_train = tfds.load(ds_name, split='test[:80%]', as_supervised=True)
+    ds_train = tfds.load(ds_name, split='{}[:80%]'.format(split), as_supervised=True)
 
     log.info("* Transforming the dataset:")
+
+    log.info("** Normalize")
+    ds_test = ds_train.map(normalize, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
     log.info("** Resize")
-    ds_train = ds_train.map(transform)
+    ds_train = ds_train.map(resize)
 
-    log.info("** Augment colors on Principal Components")
-    ds_train = ds_train.map(pca_color_augmentation)
+    if augment:
+        log.info("** Augment colors on Principal Components")
+        ds_train = ds_train.map(pca_color_augmentation)
 
-    log.info("** Flipping horizontally")
-    ds_train = ds_train.concatenate(ds_train.map(fliph))
+        log.info("** Flipping horizontally")
+        ds_train = ds_train.concatenate(ds_train.map(fliph))
 
     log.info("** Cache")
     ds_train = ds_train.cache().shuffle(batch_size * 2)
 
-    # Memory intensive
-    log.info("** Repeat {} times".format(crop_amount))
-    ds_train = ds_train.repeat(crop_amount)
+    if augment:
+        # Memory intensive
+        log.info("** Repeat {} times".format(crop_amount))
+        ds_train = ds_train.repeat(crop_amount)
 
-    log.info("** Cropping Train Set")
-    ds_train = ds_train.map(crop)
+        log.info("** Cropping Train Set")
+        ds_train = ds_train.map(crop)
 
     ds_file_size = tf.data.experimental.cardinality(ds_train)
     log.info("* Train Dataset size estimation: {}".format(ds_file_size))
@@ -159,27 +178,39 @@ def prepare_trainset(ds_name, batch_size, crop_amount):
     return ds_train.batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE)
 
 
-def prepare_testset(ds_name, batch_size):
+def prepare_testset(ds_name, split, batch_size, augment):
     """
     Prepare a dataset for testing
     :param ds_name: The name of the dataset to download from Tensorflow Dataset
     :param batch_size: The batch size of the dataset
+    :param augment: Boolean. Whether to augment data or not
     :return: The Test set
     """
     log.info("* Loading test dataset")
-    ds_test = tfds.load(ds_name, split='test[80%:]', as_supervised=True)
+    ds_test = tfds.load(ds_name, split='{}[:80%]'.format(split), as_supervised=True)
 
     log.info("* Transforming the dataset:")
+
+    log.info("** Normalize")
+    ds_test = ds_test.map(normalize, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
     log.info("** Resize")
-    ds_test = ds_test.map(transform)
+    ds_test = ds_test.map(resize)
 
-    log.info("** Patching Test Set")
-    ds_test_patches = patches(ds_test.batch(tf.cast(tf.divide(batch_size, 4), dtype=tf.int64)))
+    if augment:
+        log.info("** Patching Test Set")
+        ds_test_patches = patches(ds_test.batch(tf.cast(tf.divide(batch_size, 4), dtype=tf.int64)))
 
-    log.info("** Cropping Test Set")
-    ds_test = ds_test.map(center_crop)
-    ds_test = ds_test.concatenate(ds_test_patches)
+        log.info("** Cropping Test Set")
+        ds_test = ds_test.map(center_crop)
+        ds_test = ds_test.concatenate(ds_test_patches)
 
     ds_file_size = tf.data.experimental.cardinality(ds_test)
     log.info("* Test Dataset size estimation: {}".format(ds_file_size))
     return ds_test.batch(batch_size)
+
+
+def prepare_singleimage(image):
+    image, _ = normalize(image, None)
+    image, _ = tf.image.resize(image, [227, 227])
+    return image

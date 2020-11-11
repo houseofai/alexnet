@@ -10,8 +10,9 @@ model:
   name: imagenet_a
 
 data:
-  crop_amount: 1048
   dataset: imagenet_a
+  crop_amount: 1048
+  augment: True
 
 checkpoint:
   name: "alexnet"

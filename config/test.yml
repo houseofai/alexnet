@@ -4,14 +4,12 @@ training:
   batch_size: 128
   input_size: (227,227,3)
   patience: 3
-
-model:
-  dir: models
-  name: imagenet_a
   
 data:
+  dataset: imagenette/full-size-v2
+  split: train
   crop_amount: 2
-  dataset: imagenet_a
+  augment: False
 
 checkpoint:
   name: "alexnet"
@@ -19,7 +17,7 @@ checkpoint:
   max_to_keep: 3
 
 optimizer:
-  learning_rate: 0.1
+  learning_rate: 0.01
   momentum: 0.9
 
 tensorboard:

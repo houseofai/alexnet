@@ -57,9 +57,9 @@ def train(config):
     training = tr.Train(config)
 
     log.info("--- Dataset ---")
-    ds_train = da.prepare_trainset(config.data.dataset, config.training.batch_size, config.data.augment,
+    ds_train = da.prepare_trainset(config.data.dataset, config.data.split, config.training.batch_size, config.data.augment,
                                    config.data.crop_amount)
-    ds_test = da.prepare_testset(config.data.dataset, config.training.batch_size, config.data.augment)
+    ds_test = da.prepare_testset(config.data.dataset, config.data.split, config.training.batch_size, config.data.augment)
     ds_size = tf.data.experimental.cardinality(ds_train).numpy()
 
     # Helpers
