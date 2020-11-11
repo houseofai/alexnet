@@ -6,6 +6,7 @@ import datetime
 # Related third party imports
 import numpy as np
 import tensorflow as tf
+from tqdm import tqdm
 
 # Local application/library specific imports
 from helpers import LogEvents as lev
@@ -38,6 +39,12 @@ def predict(config, image_path):
     cm.CheckpointManager(training.model, training.optimizer, config)
 
     log.info("--- Load and Transform the image ---")
+    img = tf.keras.preprocessing.image.load_img(
+        image_path, target_size=(227, 227)
+    )
+    img_array = tf.keras.preprocessing.image.img_to_array(img)
+    img_array = tf.expand_dims(img_array, 0)  # Create batch axis
+
     img = tf.keras.utils.get_file(origin=image_path)
     img = da.prepare_singleimage(img)
 
@@ -57,9 +64,11 @@ def train(config):
     training = tr.Train(config)
 
     log.info("--- Dataset ---")
-    ds_train = da.prepare_trainset(config.data.dataset, config.data.split, config.training.batch_size, config.data.augment,
+    ds_train = da.prepare_trainset(config.data.dataset, config.data.split, config.training.batch_size,
+                                   config.data.augment,
                                    config.data.crop_amount)
-    ds_test = da.prepare_testset(config.data.dataset, config.data.split, config.training.batch_size, config.data.augment)
+    ds_test = da.prepare_testset(config.data.dataset, config.data.split, config.training.batch_size,
+                                 config.data.augment)
     ds_size = tf.data.experimental.cardinality(ds_train).numpy()
 
     # Helpers
@@ -79,18 +88,21 @@ def train(config):
         log.info("Start of epoch {}".format(epoch))
 
         train_step = 0
-        for x_batch, y_batch in ds_train:
+        bar = tqdm(ds_train)
+        for x_batch, y_batch in bar:
             training.train(x_batch, y_batch)
+            bar.set_description("[epoch{}] Loss: {:.4} Acc.:{:.4}"
+                                .format(epoch, training.train_loss.result(), training.train_accuracy.result()))
 
             # Display timing info
-            timemanager.display_batch(train_step, training.train_loss.result())
+            # timemanager.display_batch(train_step, training.train_loss.result())
 
             # Save tensorboard event log
             logevents.log_train(train_step, training.train_loss.result(), training.train_accuracy.result())
-            train_step+=1
+            train_step += 1
 
         test_step = 0
-        for x_batch, y_batch in ds_test:
+        for x_batch, y_batch in tqdm(ds_test):
             training.test(x_batch, y_batch)
 
             # Save tensorboard event log
@@ -100,7 +112,8 @@ def train(config):
         # Save checkpoint
         ckpt_manager.save(training.train_loss.result())
         # Display timing info
-        timemanager.display(epoch)
+        timemanager.display(epoch, training.train_loss.result(), training.train_accuracy.result(),
+                            training.test_loss.result(), training.test_accuracy.result())
         # Reset metrics
         logevents.reset(training.train_loss, training.train_accuracy, training.test_loss,
                         training.test_accuracy)
