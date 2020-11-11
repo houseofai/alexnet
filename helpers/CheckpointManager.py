@@ -61,5 +61,5 @@ class CheckpointManager:
         """
         if loss < self.last_loss:
             log.info("Saving best weights")
-            self.model.save_weights("{}/best-weights/{}".format(self.ckpt_dir, self.ckpt_name))
+            self.model.save_weights("{}/best-weights/{}-{}".format(self.ckpt_dir, self.ckpt_name, int(self.ckpt.step)))
             self.last_loss = loss
