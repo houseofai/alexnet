@@ -25,14 +25,21 @@ class TimeManager:
         else:
             self.log_step = self.dataset_size
 
-    def display(self, current_epoch):
+    def display(self, current_epoch, train_loss, train_accuracy, test_loss, test_accuracy):
         """
         Display the time taken by this epoch and the estimated remaining time
         :param current_epoch: The current epoch
         """
         exec_time = time.perf_counter() - self.last_ep_time
         remain_time = (self.total_epoch-current_epoch)*exec_time
-        log.info("[epoch:{}] - Execution time: {:.4} - ETA: {:.4}".format(current_epoch, exec_time, remain_time))
+
+        log.info(
+            "[epoch:{}] - Execution time: {:.4} - "
+            "ETA: {:.4} - train loss: {:.4} - "
+            "train accuracy: {:.4} - "
+            "test loss: {:.4} - "
+            "test accuracy: {:.4}".format(
+                current_epoch, exec_time, remain_time, train_loss, train_accuracy, test_loss, test_accuracy))
         self.last_ep_time = time.perf_counter()
 
     def display_batch(self, step, loss):
