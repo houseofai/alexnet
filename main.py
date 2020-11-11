@@ -39,7 +39,7 @@ def predict(config, image_path):
 
     log.info("--- Load and Transform the image ---")
     img = tf.keras.utils.get_file(origin=image_path)
-    img = da.transform(img)
+    img = da.prepare_singleimage(img)
 
     log.info("--- Predict ---")
     predictions = training.predict(img)
@@ -56,13 +56,10 @@ def train(config):
     """
     training = tr.Train(config)
 
-    if config.tensorboard.debug:
-        log.info("--- Debug activated ---")
-        debug(config.tensorboard.dir)
-
     log.info("--- Dataset ---")
-    ds_train = da.prepare_trainset(config.data.dataset, config.training.batch_size, config.data.crop_amount)
-    ds_test = da.prepare_testset(config.data.dataset, config.training.batch_size)
+    ds_train = da.prepare_trainset(config.data.dataset, config.training.batch_size, config.data.augment,
+                                   config.data.crop_amount)
+    ds_test = da.prepare_testset(config.data.dataset, config.training.batch_size, config.data.augment)
     ds_size = tf.data.experimental.cardinality(ds_train).numpy()
 
     # Helpers
@@ -81,22 +78,32 @@ def train(config):
     for epoch in range(last_epoch, config.training.epochs):
         log.info("Start of epoch {}".format(epoch))
 
-        for step, (x_batch, y_batch) in enumerate(ds_train):
+        train_step = 0
+        for x_batch, y_batch in ds_train:
             training.train(x_batch, y_batch)
 
             # Display timing info
-            timemanager.display_batch(step, training.train_loss.result())
+            timemanager.display_batch(train_step, training.train_loss.result())
 
-        for x_test, y_test in ds_test:
-            training.test(x_test, y_test)
+            # Save tensorboard event log
+            logevents.log_train(train_step, training.train_loss.result(), training.train_accuracy.result())
+            train_step+=1
+
+        test_step = 0
+        for x_batch, y_batch in ds_test:
+            training.test(x_batch, y_batch)
+
+            # Save tensorboard event log
+            logevents.log_test(test_step, training.test_loss.result(), training.test_accuracy.result())
+            test_step += 1
 
         # Save checkpoint
         ckpt_manager.save(training.train_loss.result())
-        # Save tensorboard event log
-        logevents.log(epoch, training.train_loss, training.train_accuracy, training.test_loss,
-                      training.test_accuracy)
         # Display timing info
         timemanager.display(epoch)
+        # Reset metrics
+        logevents.reset(training.train_loss, training.train_accuracy, training.test_loss,
+                        training.test_accuracy)
 
         if lrd.check(training.train_loss.result()):
             log.info("Early Stop !")
@@ -123,6 +130,10 @@ if __name__ == '__main__':
 
     config_manager = cfg.ConfigManager(args.conf)
     config = config_manager.get_conf()
+
+    if config.tensorboard.debug:
+        log.info("--- Debug activated ---")
+        debug(config.tensorboard.dir)
 
     if args.mode == "predict":
         if args.image is not None:
