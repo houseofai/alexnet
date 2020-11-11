@@ -187,7 +187,7 @@ def prepare_testset(ds_name, split, batch_size, augment):
     :return: The Test set
     """
     log.info("* Loading test dataset")
-    ds_test = tfds.load(ds_name, split='{}[:80%]'.format(split), as_supervised=True)
+    ds_test = tfds.load(ds_name, split='{}[-20%:]'.format(split), as_supervised=True)
 
     log.info("* Transforming the dataset:")
 
