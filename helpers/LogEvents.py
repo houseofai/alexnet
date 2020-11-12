@@ -18,24 +18,8 @@ class LogEvents:
         :param log_dir: The log dir
         """
         current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.log_dir = '{}/{}/'.format(log_dir, current_time)
-        self.summary_writer = tf.summary.create_file_writer(self.log_dir)
-
-    def log(self, step, train_loss, train_accuracy, test_loss, test_accuracy):
-        """
-        Log an event
-        :param step: the current step
-        :param train_loss: The current training loss
-        :param train_accuracy: The current training accuracy
-        :param test_loss: The current testing loss
-        :param test_accuracy: The current testing accuracy
-        """
-        log.info(
-            "[epoch:{}] train loss: {:.4} - train accuracy: {:.4} - test loss: {:.4} - test accuracy: {:.4}".format(
-                step, train_loss, train_accuracy, test_loss, test_accuracy))
-
-        self.log_train(step, train_loss, train_accuracy)
-        self.log_test(step, test_loss, test_accuracy)
+        full_log_dir = '{}/{}/'.format(log_dir, current_time)
+        self.summary_writer = tf.summary.create_file_writer(full_log_dir)
 
     def log_train(self, step, loss, accuracy):
         self.__log(step, 'train_loss', loss)
