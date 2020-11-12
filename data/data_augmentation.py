@@ -149,7 +149,7 @@ def prepare_trainset(ds_name, split, batch_size, augment, crop_amount):
     log.info("* Transforming the dataset:")
 
     log.info("** Normalize")
-    ds_test = ds_train.map(normalize, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    ds_train = ds_train.map(normalize, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     log.info("** Resize")
     ds_train = ds_train.map(resize)
