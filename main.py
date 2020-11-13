@@ -28,12 +28,17 @@ def debug(dir):
                                                      circular_buffer_size=-1)
 
 
-def get_classes():
+def get_classes(config):
     classes = []
-    with open('data/labels/words.txt') as f:
-        lines = f.readlines()
-        for line in lines:
-            classes.append(line.split("\t")[1])
+
+    if config.data.dataset == "imagenette/full-size-v2":
+        classes = ["tench", "English springer", "cassette player", "chain saw", "church", "French horn",
+                   "garbage truck", "gas pump", "golf ball", "parachute"]
+    else:
+        with open('data/labels/words.txt') as f:
+            lines = f.readlines()
+            for line in lines:
+                classes.append(line.split("\t")[1])
     return classes
 
 
@@ -55,13 +60,10 @@ def predict(config, image_path):
     img_array = tf.cast(img_array, tf.float32) / 255.
     img_array = tf.expand_dims(img_array, 0)  # Create batch axis
 
-    #img = tf.keras.utils.get_file(origin=image_path)
-    #img = da.prepare_singleimage(img)
-
     log.info("--- Predict ---")
     predictions = training.predict(img_array)
 
-    classes = get_classes()
+    classes = get_classes(config)
 
     log.info("* Probability: {}".format(max(predictions[0])))
     class_idx = np.argmax(predictions[0])

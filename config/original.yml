@@ -7,10 +7,10 @@ training:
 
 model:
   dir: models
-  name: imagenet_a
+  name: imagenette
 
 data:
-  dataset: imagenet_a
+  dataset: imagenette/full-size-v2
   crop_amount: 1048
   augment: True
 
