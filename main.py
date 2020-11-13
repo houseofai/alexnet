@@ -28,6 +28,15 @@ def debug(dir):
                                                      circular_buffer_size=-1)
 
 
+def get_classes():
+    classes = []
+    with open('data/labels/words.txt') as f:
+        lines = f.readlines()
+        for line in lines:
+            classes.append(line.split("\t")[1])
+    return classes
+
+
 def predict(config, image_path):
     """
     Predict classes probabilities for one image
@@ -43,18 +52,22 @@ def predict(config, image_path):
         image_path, target_size=(227, 227)
     )
     img_array = tf.keras.preprocessing.image.img_to_array(img)
+    img_array = tf.cast(img_array, tf.float32) / 255.
     img_array = tf.expand_dims(img_array, 0)  # Create batch axis
 
-    img = tf.keras.utils.get_file(origin=image_path)
-    img = da.prepare_singleimage(img)
+    #img = tf.keras.utils.get_file(origin=image_path)
+    #img = da.prepare_singleimage(img)
 
     log.info("--- Predict ---")
-    predictions = training.predict(img)
+    predictions = training.predict(img_array)
 
-    log.info("* Outputs Shape:", predictions.shape)
-    log.info("* Outputs Max:", max(predictions[0]))
-    log.info("* Outputs Index:", np.argmax(predictions[0]))
+    classes = get_classes()
 
+    log.info("* Probability: {}".format(max(predictions[0])))
+    class_idx = np.argmax(predictions[0])
+    class_name = classes[class_idx]
+    log.info("* Class: {}".format(class_name))
+    return class_name
 
 def train(config):
     """
