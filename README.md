@@ -1,5 +1,5 @@
 # AlexNet
-This project intend to replicate the AlexNet CNN network by strictly following the original paper.
+This project intends to replicate the AlexNet CNN network by strictly following the original paper.
 
 ___
 
