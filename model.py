@@ -20,7 +20,7 @@ class AlexNet(tf.keras.Model):
         bias0 = tf.keras.initializers.Zeros()
         self.drop = tf.keras.layers.Dropout(.5)
 
-        # Input is 227 and not 224 as stated on the paper.
+        # Input is 227 and not 224 as stated on the doc.
         # See issue: https://stackoverflow.com/questions/36733636/the-number-of-neurons-in-alexnet
         self.conv1_1 = tf.keras.layers.Conv2D(48, 11, strides=4, activation="relu", input_shape=[227, 227, 3],
                                               kernel_initializer=initializer, bias_initializer=bias0)
